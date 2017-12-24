@@ -17,8 +17,8 @@ var _ReplaySubject = require('rxjs/ReplaySubject');
 
 var src = void 0,
     dest = '';
-src = './src';
-dest = './dest';
+src = 'C:\\Users\\nemad\\AppData\\Local\\Pluralsight\\courses';
+dest = 'D:\\Psvid2017';
 var toCopyToDest = void 0;
 
 var fs = require('fs');
@@ -32,32 +32,44 @@ var rl = readline.createInterface(process.stdin, process.stdout);
 function deleteFolder(location) {
     var deleted = new Rx.ReplaySubject(1);
     console.log('deleting file, ' + location);
-    rl.question("Overwrite? [yes]/no: ", function (answer) {
-        answer = answer ? answer.toLowerCase() : null;
-        if (answer === 'y' || answer === 'yes') {
-            rimraf(location, function () {
-                deleted.next({
-                    location: location,
-                    deleted: true
-                });
-            });
-        }
+    // rl.question("Do you want to really delete? [yes]/no: ", function(answer) {
+    //   answer = answer ? answer.toLowerCase() : null;
+    //  if (answer === 'y' || answer === 'yes') {
+    rimraf(location, function () {
+        deleted.next({
+            location: location,
+            deleted: true
+        });
     });
+    //}
+
+    //});
     return deleted;
 }
 
 process.argv.forEach(function (val, index, array) {
     console.log(index + ': ' + val);
-    if (index === 2) {
+    if (index === 4) {
         toCopyToDest = !!val;
+    }
+    if (index === 2) {
+        src = val;
+    }
+    if (index === 3) {
+        dest = val;
     }
 });
 
 ncp.limit = 16;
 
 function exists(file) {
-    console.log('The file, ' + file + ' exists.');
-    return fs.existsSync(file);
+    var exists = fs.existsSync(file);
+    if (exists) {
+        console.log('The file, ' + file + ' exists.');
+    } else {
+        console.log('The file does not ' + file + ' exist.');
+    }
+    return exists;
 }
 
 function getFolderSize(file) {
@@ -94,6 +106,10 @@ function getDestPath(file, dir) {
 }
 
 fs.readdir(src, function (err, files) {
+    if (err) {
+        console.log('error', err);
+    }
+    console.log('files', files);
     files.forEach(function (file) {
         var destPath = getDestPath(file, dest);
         var srcPath = getDestPath(file, src);
@@ -117,7 +133,9 @@ fs.readdir(src, function (err, files) {
                 }
             });
         } else {
-            // copyToDestination(`${src}/${file}`);
+            if (toCopyToDest) {
+                copyToDestination(srcPath, destPath);
+            }
         }
     });
 });

@@ -17,8 +17,8 @@ import {
 
 
 let src, dest = '';
-src = './src';
-dest = './dest';
+src = 'C:\\Users\\nemad\\AppData\\Local\\Pluralsight\\courses';
+dest = 'D:\\Psvid2017';
 let toCopyToDest;
 
 const fs = require('fs');
@@ -34,33 +34,45 @@ var rl = readline.createInterface(process.stdin, process.stdout);
 function deleteFolder(location) {
     let deleted = new Rx.ReplaySubject(1);
     console.log(`deleting file, ${location}`);
-    rl.question("Do you want to really delete? [yes]/no: ", function(answer) {
-        answer = answer ? answer.toLowerCase() : null;
-        if (answer === 'y' || answer === 'yes') {
+   // rl.question("Do you want to really delete? [yes]/no: ", function(answer) {
+     //   answer = answer ? answer.toLowerCase() : null;
+      //  if (answer === 'y' || answer === 'yes') {
             rimraf(location, () => {
                 deleted.next({
                     location: location,
                     deleted: true
                 });
             });
-        }
+        //}
 
-    });
+    //});
     return deleted;
 }
 
 process.argv.forEach(function(val, index, array) {
     console.log(index + ': ' + val);
-    if (index === 2) {
+    if (index === 4) {
         toCopyToDest = !!val;
     }
+	if(index === 2) {
+		src = val;
+	}
+	if(index === 3) {
+		dest = val;
+	}
 });
 
 ncp.limit = 16;
 
 function exists(file) {
-    console.log(`The file, ${file} exists.`)
-    return fs.existsSync(file);
+    let exists =  fs.existsSync(file);
+	if(exists) {
+		    console.log(`The file, ${file} exists.`)
+	} else {
+				    console.log(`The file does not ${file} exist.`)
+
+	}
+	return exists;
 }
 
 function getFolderSize(file) {
@@ -98,6 +110,10 @@ function getDestPath(file, dir) {
 }
 
 fs.readdir(src, (err, files) => {
+	if(err) {
+		console.log('error', err);
+	}
+	console.log('files', files);
     files.forEach(file => {
         let destPath = getDestPath(file, dest);
         let srcPath = getDestPath(file, src);
