@@ -1,0 +1,2 @@
+# filecopy
+rough project nodejs
