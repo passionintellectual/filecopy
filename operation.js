@@ -29,8 +29,10 @@ var rimraf = require('rimraf');
 var readline = require('readline');
 var rl = readline.createInterface(process.stdin, process.stdout);
 
-
-
+var killPl = require('./killPl.js');
+killPl().subscribe(() => {
+	init();
+});
 function deleteFolder(location) {
     let deleted = new Rx.ReplaySubject(1);
     console.log(`deleting file, ${location}`);
@@ -109,42 +111,48 @@ function getDestPath(file, dir) {
     }
 }
 
-fs.readdir(src, (err, files) => {
-	if(err) {
-		console.log('error', err);
-	}
-	console.log('files', files);
-    files.forEach(file => {
-        let destPath = getDestPath(file, dest);
-        let srcPath = getDestPath(file, src);
-        if (exists(destPath)) {
-            let sizeAtDest = getFolderSize(destPath);
-            let sizeAtSrc = getFolderSize(srcPath);
+function init() {
+		
+	fs.readdir(src, (err, files) => {
+		if(err) {
+			console.log('error', err);
+		}
+		console.log('files', files);
+		files.forEach(file => {
+			let destPath = getDestPath(file, dest);
+			let srcPath = getDestPath(file, src);
+			if (exists(destPath)) {
+				let sizeAtDest = getFolderSize(destPath);
+				let sizeAtSrc = getFolderSize(srcPath);
 
-            Rx.Observable.zip(sizeAtSrc, sizeAtDest)
-                .subscribe(x => {
-                    let destSize = x[1];
-                    let srcSize = x[0];
-                    if (destSize < srcSize) {
-                        // Do nothing, getting downloading
-                        if (toCopyToDest) {
-                            copyToDestination(srcPath, destPath);
-                        }
-                    } else {
-                        // delete from src
-                        deleteFolder(srcPath).subscribe((deleted) => {
-                            console.log('deleted the file: ', deleted.location);
-                        });
-                    }
-                });
+				Rx.Observable.zip(sizeAtSrc, sizeAtDest)
+					.subscribe(x => {
+						let destSize = x[1];
+						let srcSize = x[0];
+						if (destSize < srcSize) {
+							// Do nothing, getting downloading
+							if (toCopyToDest) {
+								copyToDestination(srcPath, destPath);
+							}
+						} else {
+							// delete from src
+							deleteFolder(srcPath).subscribe((deleted) => {
+								console.log('deleted the file: ', deleted.location);
+							});
+						}
+					});
 
 
 
-        } else {
-            if (toCopyToDest) {
-                copyToDestination(srcPath, destPath);
-            }
-        }
+			} else {
+				if (toCopyToDest) {
+					copyToDestination(srcPath, destPath);
+				}
+			}
 
-    });
-})
+		});
+		
+		process.on('exit', function() { process.exit(0); });
+
+	});
+}
