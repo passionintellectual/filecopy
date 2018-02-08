@@ -18,6 +18,8 @@ import {
 
 let src, dest = '';
 src = 'C:\\Users\\nemad\\AppData\\Local\\Pluralsight\\courses';
+let dbDest = 'C:\\Users\\nemad\\AppData\\Local\\Pluralsight\\pluralsight.db';
+let dbEmptySrc = "pluralsight.db"
 dest = 'D:\\Psvid2017';
 let toCopyToDest;
 
@@ -29,10 +31,10 @@ var rimraf = require('rimraf');
 var readline = require('readline');
 var rl = readline.createInterface(process.stdin, process.stdout);
 
-var killPl = require('./killPl.js');
-killPl().subscribe(() => {
+ var killPl = require('./killPl.js');
+ killPl().subscribe(() => {
 	init();
-});
+ });
 function deleteFolder(location) {
     let deleted = new Rx.ReplaySubject(1);
     console.log(`deleting file, ${location}`);
@@ -111,48 +113,158 @@ function getDestPath(file, dir) {
     }
 }
 
+function copyFile(source, target, cb) {
+  var cbCalled = false;
+
+  var rd = fs.createReadStream(source);
+  rd.on("error", function(err) {
+    done(err);
+  });
+  var wr = fs.createWriteStream(target);
+  wr.on("error", function(err) {
+    done(err);
+  });
+  wr.on("close", function(ex) {
+    done();
+  });
+  rd.pipe(wr);
+
+  function done(err) {
+    if (!cbCalled) {
+      cb(err);
+      cbCalled = true;
+    }
+  }
+}
+let observable = new Rx.ReplaySubject(1);
+let obs = [];
+let length = 0;
+let processedCount = 0;
+let executeOnFile =  (file )=> {
+				 
+			 	let donePromise = new Rx.ReplaySubject();
+				console.log('processing file', file);
+							
+				let destPath = getDestPath(file, dest);
+				let srcPath = getDestPath(file, src);
+				if (exists(destPath)) {
+					let sizeAtDest = getFolderSize(destPath);
+					let sizeAtSrc = getFolderSize(srcPath);
+
+					Rx.Observable.zip(sizeAtSrc, sizeAtDest)
+						
+						.subscribe(x => {
+							let destSize = x[1];
+							let srcSize = x[0];
+							if (destSize < srcSize) {
+								// Do nothing, getting downloading
+								if (toCopyToDest) {
+									copyToDestination(srcPath, destPath);
+								}
+								console.log('dest size is small', file);
+								donePromise.next('noaction');
+							} else {
+							
+								// delete from src
+								deleteFolder(srcPath).subscribe((deleted) => {
+									
+									console.log('deleted the file: ', deleted.location);
+									
+									donePromise.next('deleted');
+
+									
+									
+								});
+							}
+						});
+
+
+
+				} else {
+					donePromise.next('noaction');
+					if (toCopyToDest) {
+						copyToDestination(srcPath, destPath);
+					}
+				}
+				
+			donePromise.subscribe((x)=> { console.log('stat', x); observable.next(++processedCount); });	
+			
+			 return donePromise;
+
+		}
+
 function init() {
 		
+	 
 	fs.readdir(src, (err, files) => {
+		
 		if(err) {
 			console.log('error', err);
 		}
 		console.log('files', files);
-		files.forEach(file => {
-			let destPath = getDestPath(file, dest);
-			let srcPath = getDestPath(file, src);
-			if (exists(destPath)) {
-				let sizeAtDest = getFolderSize(destPath);
-				let sizeAtSrc = getFolderSize(srcPath);
-
-				Rx.Observable.zip(sizeAtSrc, sizeAtDest)
-					.subscribe(x => {
-						let destSize = x[1];
-						let srcSize = x[0];
-						if (destSize < srcSize) {
-							// Do nothing, getting downloading
-							if (toCopyToDest) {
-								copyToDestination(srcPath, destPath);
-							}
-						} else {
-							// delete from src
-							deleteFolder(srcPath).subscribe((deleted) => {
-								console.log('deleted the file: ', deleted.location);
-							});
-						}
-					});
-
-
-
-			} else {
-				if (toCopyToDest) {
-					copyToDestination(srcPath, destPath);
-				}
-			}
-
+	 
+		length = files.length;
+	 
+		files.forEach((file, index) => {
+			obs.push(executeOnFile(file));
 		});
+		if(!length) {
+			observable.next(0);
+		}
 		
-		process.on('exit', function() { process.exit(0); });
+		// copyToDestination(dbEmptySrc, dbDest);
+		// console.log('obs',obs);
+		observable
+		.subscribe(x => {
+
+			console.log('sub x', x);
+			console.log('processedCount is now', processedCount);
+			if(processedCount === length) {
+				console.log('ffff', x);
+				done();
+			}
+		});;
+
+
 
 	});
+	
+	// console.log('processedFiles', processedFiles);
+	
+	 /* if(processedFiles && processedFiles.length) {
+			
+			Rx.Observable.concat(processedFiles)
+		   .subscribe((responses) => {
+				 done();
+		   });
+		}else {
+			//done();
+		}		
+	   */
+	   function copyDbFile(callback) {
+			fs.readdir(src, (err, files) => {
+				if(err) {
+					console.log('error', err);
+				}
+				console.log('files', files);
+				if(files.length == 0) {
+					
+					copyFile(dbEmptySrc, dbDest, ()=> {  
+						console.log('copied ' + dbEmptySrc + ' to '+ ' ' + dbDest); 
+						callback.call(null);
+					});
+				}else {
+					callback.call(null);
+					
+				}
+			});
+		   
+	   }
+	   
+	   function done() {
+		   			 console.log('Processed All files');
+			copyDbFile(() => {
+				console.info('finished');
+			});
+	   }
 }
